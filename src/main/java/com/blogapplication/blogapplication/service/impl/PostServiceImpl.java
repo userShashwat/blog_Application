@@ -8,6 +8,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.blogapplication.blogapplication.entity.Category;
@@ -19,15 +22,9 @@ import com.blogapplication.blogapplication.payload.PostResponse;
 import com.blogapplication.blogapplication.repository.CategoryRepository;
 import com.blogapplication.blogapplication.repository.PostRepository;
 import com.blogapplication.blogapplication.service.PostService;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-
-
 
 @Service
-public class PostServiceImpl implements PostService{
+public class PostServiceImpl implements PostService {
 
     @Autowired
     PostRepository postRepository;
@@ -40,33 +37,29 @@ public class PostServiceImpl implements PostService{
 
     @Override
     public PostDTO createPost(PostDTO postDto) {
-        // Create a new post
-        // Get category object
-        Category category = categoryRepository.findById(postDto.getCategoryId()).orElseThrow( () -> new ResourceNotFoundException("Post Resource", "Post ID", postDto.getCategoryId()));
+        Category category = categoryRepository.findById(postDto.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", postDto.getCategoryId()));
 
         Post post = modelMapper.map(postDto, Post.class);
         post.setCategory(category);
         postRepository.save(post);
 
-        // Convert entity to dto
-        PostDTO responsePostDto = modelMapper.map(post, PostDTO.class);
-        return responsePostDto;
+        return modelMapper.map(post, PostDTO.class);
     }
-
-
 
     @Override
     public PostResponse getAllPost(int pageNo, int pageSize, String sortBy, String sortDir) {
 
-        // Add Pagination
-        Pageable pageable = PageRequest.of(pageNo, pageSize);
+        // FIXED: sortBy and sortDir were previously ignored — now applied correctly
+        Sort sort = sortDir.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
 
         Page<Post> paginatedPosts = postRepository.findAll(pageable);
-        
         List<Post> posts = paginatedPosts.getContent();
 
-        
-        // Response in a proper pagination formate
         PostResponse postResponse = new PostResponse();
         postResponse.setContent(posts);
         postResponse.setPageNo(paginatedPosts.getNumber());
@@ -75,75 +68,59 @@ public class PostServiceImpl implements PostService{
         postResponse.setTotalPages(paginatedPosts.getTotalPages());
         postResponse.setLast(paginatedPosts.isLast());
 
-
         return postResponse;
     }
 
-
-
     @Override
     public Post getPostById(Long postId) {
-        // TODO Auto-generated method stub
-        return postRepository.findById(postId).orElseThrow(()-> new BlogAPIException(HttpStatus.BAD_REQUEST, "Blog is not available"));
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
     }
-
-
 
     @Override
     public PostDTO updatePost(Long blogId, PostDTO postDto) {
-        // Update Post based on ID
-        Post postGet = postRepository.findById(blogId).get();
 
-        if( Objects.nonNull( postDto.getTitle() ) && !"".equalsIgnoreCase( postGet.getTitle() ))
-        {
+        // FIXED: replaced unsafe .get() with orElseThrow
+        Post postGet = postRepository.findById(blogId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", blogId));
+
+        if (Objects.nonNull(postDto.getTitle()) && !postDto.getTitle().isEmpty()) {
             postGet.setTitle(postDto.getTitle());
         }
 
-        if( Objects.nonNull( postDto.getDescription() ) && !"".equalsIgnoreCase(postGet.getDescription()))
-        {
-            postGet.setDescription(postDto.getDescription());
-        } 
-
-        if( Objects.nonNull( postDto.getDescription() ) && !"".equalsIgnoreCase(postGet.getContent()))
-        {
+        if (Objects.nonNull(postDto.getDescription()) && !postDto.getDescription().isEmpty()) {
             postGet.setDescription(postDto.getDescription());
         }
 
-        if( Objects.nonNull( postDto.getCategoryId() ) && !postGet.getContent().isEmpty() )
-        {
-             // Get category object
-            Category category = categoryRepository.findById(postDto.getCategoryId()).orElseThrow( () -> new ResourceNotFoundException("Post Resource", "Post ID", postDto.getCategoryId()));
+        // FIXED: was checking postDto.getDescription() and calling setDescription() — should be content
+        if (Objects.nonNull(postDto.getContent()) && !postDto.getContent().isEmpty()) {
+            postGet.setContent(postDto.getContent());
+        }
 
+        if (Objects.nonNull(postDto.getCategoryId())) {
+            Category category = categoryRepository.findById(postDto.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", postDto.getCategoryId()));
             postGet.setCategory(category);
         }
 
         postRepository.save(postGet);
-
-        // Convert entity to dto
-        PostDTO responsePostDto = modelMapper.map(postGet, PostDTO.class);
-        
-        return responsePostDto;
-
+        return modelMapper.map(postGet, PostDTO.class);
     }
-
-
 
     @Override
     public String deletePost(Long postId) {
-        // TODO Auto-generated method stub
+        // Verify it exists before deleting
+        postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
         postRepository.deleteById(postId);
         return "Post Deleted Successfully";
     }
 
-
-
     @Override
     public List<PostDTO> findByCategoryId(Long categoryId) {
-        // Post List By Category ID
-        List<Post> posts               = postRepository.findByCategoryId(categoryId);
-        List<PostDTO> responsePostDtos = posts.stream().map(post -> modelMapper.map(post,PostDTO.class)).collect(Collectors.toList());
-
-        return responsePostDtos;
+        List<Post> posts = postRepository.findByCategoryId(categoryId);
+        return posts.stream()
+                .map(post -> modelMapper.map(post, PostDTO.class))
+                .collect(Collectors.toList());
     }
-    
 }

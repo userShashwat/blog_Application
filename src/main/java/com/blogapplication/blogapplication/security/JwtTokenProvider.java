@@ -20,67 +20,46 @@ import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtTokenProvider {
-    
+
     @Value("${app.jwt-secret}")
     private String jwtSecret;
 
     @Value("${app-jwt-expiration-milliseconds}")
-    private Long JwtExpirationDate;
+    private Long jwtExpirationDate;
 
-    
-
-    // Generate JWT Token
-    public String generateToken(Authentication authentication)
-    {
+    public String generateToken(Authentication authentication) {
         String username = authentication.getName();
-
         Date currentDate = new Date();
+        Date expireDate = new Date(currentDate.getTime() + jwtExpirationDate);
 
-        Date expireDate = new Date(currentDate.getTime() + JwtExpirationDate);
-
-       String jwtToken =  Jwts.builder()
-        .setSubject(username)
-        .setIssuedAt(new Date())
-        .setExpiration(expireDate)
-        .signWith(key())
-        .compact();
-
-        return jwtToken;
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(currentDate)
+                .setExpiration(expireDate)
+                .signWith(key())
+                .compact();
+    }
+    //Hash-based Message Authentication Code (H-M-A-C) combined with a Secure Hash Algorithm (SHA)
+    private Key key() {
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
-    // Key should from import java.security.Key;
-
-    private Key key()
-    {
-        return Keys.hmacShaKeyFor(
-            Decoders.BASE64.decode(jwtSecret)
-        );
+    public String getUsername(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getSubject();
     }
 
-
-    // Get Username from JWT Token
-    public String getUsername(String token)
-    {
-
-       Claims claim = Jwts.parserBuilder()
-        .setSigningKey(key())
-        .build()
-        .parseClaimsJws(token)
-        .getBody(); // getBody return Claim Body
-
-
-        String username = claim.getSubject();
-
-        return username;
-    }
-
-    // validate Jwt token
-    public Boolean validateToken(String token){
-        try{
+    public Boolean validateToken(String token) {
+        try {
+            // FIXED: was .parse(token) which skips signature verification — must use .parseClaimsJws()
             Jwts.parserBuilder()
                     .setSigningKey(key())
                     .build()
-                    .parse(token);
+                    .parseClaimsJws(token);
             return true;
         } catch (MalformedJwtException ex) {
             throw new BlogAPIException(HttpStatus.BAD_REQUEST, "Invalid JWT token");
@@ -89,9 +68,7 @@ public class JwtTokenProvider {
         } catch (UnsupportedJwtException ex) {
             throw new BlogAPIException(HttpStatus.BAD_REQUEST, "Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
-            throw new BlogAPIException(HttpStatus.BAD_REQUEST, "JWT claims string is empty.");
+            throw new BlogAPIException(HttpStatus.BAD_REQUEST, "JWT claims string is empty");
         }
     }
-
-
 }

@@ -2,6 +2,7 @@ package com.blogapplication.blogapplication.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,17 +31,15 @@ public class AuthController {
         
         jwtAuthResponse.setAccessToken(token);
 
-
         return ResponseEntity.ok(jwtAuthResponse);
     }
 
         // Build Register  Rest API
-        @PostMapping(value = {"/register", "/signup"})
-        public ResponseEntity<String> register( @RequestBody RegisterDTO registerDTO){
-    
+    @PostMapping(value = {"/register", "/signup"})
+       public ResponseEntity<String> register( @RequestBody RegisterDTO registerDTO){
             String response = authService.register(registerDTO);
-    
             return ResponseEntity.ok(response);
-        }
+       }
+
 
 }

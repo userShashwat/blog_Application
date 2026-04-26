@@ -23,7 +23,7 @@ import com.blogapplication.blogapplication.security.JwtTokenProvider;
 import com.blogapplication.blogapplication.service.AuthService;
 
 @Service
-public class AuthServiceImpl implements AuthService{
+public class AuthServiceImpl implements AuthService {
 
     @Autowired
     AuthenticationManager authenticationManager;
@@ -40,52 +40,44 @@ public class AuthServiceImpl implements AuthService{
     @Autowired
     JwtTokenProvider jwtTokenProvider;
 
-
     @Override
     public String login(LoginDTO loginDTO) {
-        Authentication authentication =  authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginDTO.getUsernameOrEmail(), loginDTO.getPassword()));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginDTO.getUsernameOrEmail(),
+                        loginDTO.getPassword()
+                )
+        );
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String token = jwtTokenProvider.generateToken(authentication);
-        return token;
+        return jwtTokenProvider.generateToken(authentication);
     }
-
 
     @Override
     public String register(RegisterDTO registerDTO) {
-        // Check username is exist in database or not
-        if(userRepository.existsByUsername(registerDTO.getUsername())){
-            throw new BlogAPIException( HttpStatus.BAD_REQUEST, "Username is alrady exist");
+
+        // Check username already exists
+        if (userRepository.existsByUsername(registerDTO.getUsername())) {
+            throw new BlogAPIException(HttpStatus.BAD_REQUEST, "Username already exists");
         }
 
-        // Check email is exist in database or not
-        if(userRepository.existsByUsername(registerDTO.getEmail())){
-            throw new BlogAPIException( HttpStatus.BAD_REQUEST, "Email is alrady exist");
+        // FIXED: was existsByUsername(email) — must use existsByEmail
+        if (userRepository.existsByEmail(registerDTO.getEmail())) {
+            throw new BlogAPIException(HttpStatus.BAD_REQUEST, "Email already exists");
         }
 
         User user = new User();
-
         user.setName(registerDTO.getName());
         user.setUsername(registerDTO.getUsername());
         user.setEmail(registerDTO.getEmail());
         user.setPassword(passwordEncoder.encode(registerDTO.getPassword()));
-        
 
         Set<Role> roles = new HashSet<>();
-
-        Role userRole = roleRepository.findByName("ROLE_USER").get();
-
+        Role userRole = roleRepository.findByName("ROLE_USER")
+                .orElseThrow(() -> new BlogAPIException(HttpStatus.INTERNAL_SERVER_ERROR, "ROLE_USER not found in database"));
         roles.add(userRole);
-        
-        // Set Role to the user
         user.setRoles(roles);
 
-        // Save user After Assign role . By default all user will get ROLE_USER authorizom
         userRepository.save(user);
-
-
-
-        return "Registration Sucess";
+        return "Registration Successful";
     }
-    
 }

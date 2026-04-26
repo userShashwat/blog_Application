@@ -19,7 +19,6 @@ public class CategoryServiceImpl implements CategoryService {
     @Autowired
     CategoryRepository categoryRepository;
 
-    // @Autowired
     ModelMapper modelMapper;
 
     public CategoryServiceImpl(ModelMapper modelMapper) {
@@ -28,73 +27,49 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryDto addCategory(CategoryDto categoryDto) {
-
-        // Convert CategoryDto to Category Entity
         Category category = modelMapper.map(categoryDto, Category.class);
-        // Save the category
-        Category saveCategory  =  categoryRepository.save(category);
-
-        return modelMapper.map(saveCategory, CategoryDto.class);
+        Category savedCategory = categoryRepository.save(category);
+        return modelMapper.map(savedCategory, CategoryDto.class);
     }
 
     @Override
     public CategoryDto getCategoryById(Long categoryId) {
-        // Get Category By ID
-        Category category = categoryRepository.findById(categoryId).get();
-        return modelMapper.map(category,CategoryDto.class);
+        // FIXED: replaced unsafe .get() with orElseThrow
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+        return modelMapper.map(category, CategoryDto.class);
     }
-
-
-
-
 
     @Override
     public List<CategoryDto> getCategoryList() {
-        // Get Category List
-        List<Category> categories =  categoryRepository.findAll();
-
-        // Convert Category Entity list to CategoryDto List
-        List<CategoryDto> categoriesDtos = categories
-        .stream()
-        .map(user -> modelMapper.map(user, CategoryDto.class))
-        .collect(Collectors.toList());
-        
-        return categoriesDtos;
+        List<Category> categories = categoryRepository.findAll();
+        return categories.stream()
+                .map(category -> modelMapper.map(category, CategoryDto.class))
+                .collect(Collectors.toList());
     }
 
     @Override
     public CategoryDto updateCategoryById(Long categoryId, CategoryDto categoryDto) {
-        // Update by ID
-        // Get Category By ID
-        Category category = categoryRepository.findById(categoryId).get();
+        // FIXED: replaced unsafe .get() with orElseThrow
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+
         category.setName(categoryDto.getName());
         category.setDescription(categoryDto.getDescription());
-        categoryRepository.save(category);
 
-        Category updatedCategory = categoryRepository.findById(categoryId).get();
-
-        // Convert category entity to map category
-
-        CategoryDto responseCategory = modelMapper.map(updatedCategory, CategoryDto.class);
-
-
-        return responseCategory;
-
+        // FIXED: save() returns the updated entity — no need for a second findById call
+        Category updatedCategory = categoryRepository.save(category);
+        return modelMapper.map(updatedCategory, CategoryDto.class);
     }
 
     @Override
     public CategoryDto deleteCategoryById(Long categoryId) {
-        // Check Category is exist 
-         // Get Category By ID
-         Category category = categoryRepository.findById(categoryId).orElseThrow( () -> new ResourceNotFoundException("Category Resource", "Categeopry ID", categoryId));
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
 
-         if( category.getId() == categoryId)
-         {
-            categoryRepository.deleteById(category.getId());
-         }
-         
+        // FIXED: was using == for Long comparison (reference equality bug for id > 127)
+        categoryRepository.deleteById(category.getId());
 
-         return modelMapper.map(category, CategoryDto.class);
+        return modelMapper.map(category, CategoryDto.class);
     }
-    
 }
