@@ -3,6 +3,8 @@ package com.blogapplication.blogapplication.service.impl;
 import java.util.List;
 import java.util.Objects;
 
+import com.blogapplication.blogapplication.payload.CommentDTO;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,11 +26,14 @@ public class CommentServiceImpl implements CommentService {
     @Autowired
     PostRepository postRepository;
 
+    private ModelMapper modelMapper;
+
     @Override
     public Comment createComment(Long postId, Comment comment) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
         comment.setPost(post);
+        post.getComments().add(comment);
         return commentRepository.save(comment);
     }
 
@@ -53,7 +58,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Comment updateCommentById(Long postId, Long commentId, Comment comment) {
+    public Comment updateCommentById(Long postId, Long commentId, CommentDTO comment) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
 
@@ -64,19 +69,11 @@ public class CommentServiceImpl implements CommentService {
             throw new BlogAPIException(HttpStatus.BAD_REQUEST, "Comment does not belong to the post");
         }
 
-        if (Objects.nonNull(comment.getName()) && !comment.getName().isEmpty()) {
-            getComment.setName(comment.getName());
-        }
-        if (Objects.nonNull(comment.getEmail()) && !comment.getEmail().isEmpty()) {
-            getComment.setEmail(comment.getEmail());
-        }
-        if (Objects.nonNull(comment.getBody()) && !comment.getBody().isEmpty()) {
-            getComment.setBody(comment.getBody());
-        }
+
+        modelMapper.map(comment, getComment);
 
         return commentRepository.save(getComment);
     }
-
     @Override
     public Comment deleteCommentById(Long postId, Long commentId) {
         Post post = postRepository.findById(postId)

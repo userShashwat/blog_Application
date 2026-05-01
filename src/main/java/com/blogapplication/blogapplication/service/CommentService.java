@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.blogapplication.blogapplication.entity.Comment;
+import com.blogapplication.blogapplication.payload.CommentDTO;
 
 public interface CommentService {
     Comment createComment(Long postId, Comment comment);
@@ -12,7 +13,7 @@ public interface CommentService {
 
     Comment getCommentById(Long postId, Long commentId);
 
-    Comment updateCommentById(Long postId, Long commentId, Comment comment);
+    Comment updateCommentById(Long postId, Long commentId, CommentDTO comment);
 
     Comment deleteCommentById(Long postId, Long commentId);
 
